@@ -236,8 +236,7 @@
                                 <option value="all">All branches</option>
                                 <option value="BCA">BCA</option>
                                 <option value="CSE">CSE</option>
-                                <option value="ECE">ECE</option>
-                                <option value="ME">ME</option>
+                                <option value="AI/ML">AI/ML</option>
                             </select>
                         </div>
                         <button class="btn btn-primary" type="button" onclick="openModal('studentModal')">
@@ -286,7 +285,7 @@
                                 <div class="grid-3">
                                     <div class="field">
                                         <label for="issueBranch">Branch</label>
-                                        <input type="text" id="issueBranch" placeholder="BCA" required>
+                                        <input type="text" id="issueBranch" placeholder="BCA / CSE / AI/ML" list="branchList" required>
                                     </div>
                                     <div class="field">
                                         <label for="issueYear">Year (1-4)</label>
@@ -424,7 +423,12 @@
                     <div class="grid-3">
                         <div class="field">
                             <label for="newStudentBranch">Branch <span class="req">*</span></label>
-                            <input type="text" id="newStudentBranch" placeholder="BCA" required>
+                            <input type="text" id="newStudentBranch" placeholder="BCA / CSE / AI/ML" list="branchList" required>
+                            <datalist id="branchList">
+                                <option value="BCA">
+                                <option value="CSE">
+                                <option value="AI/ML">
+                            </datalist>
                         </div>
                         <div class="field">
                             <label for="newStudentYear">Year (1-4) <span class="req">*</span></label>

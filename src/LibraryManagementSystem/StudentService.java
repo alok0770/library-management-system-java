@@ -41,7 +41,7 @@ public class StudentService {
         System.out.print("-> Enter Student name : ");
         String name = scanner.nextLine().toUpperCase().trim();
 
-        System.out.print("-> Enter Branch (e.g. BCA, CSE) : ");
+        System.out.print("-> Enter Branch (e.g. BCA, CSE, AI/ML) : ");
         String branch = scanner.nextLine().toUpperCase().trim();
 
         int year;
