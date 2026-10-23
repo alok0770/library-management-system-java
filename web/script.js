@@ -1,13 +1,15 @@
 // ==========================================================
-// CampusLib - Enterprise Library Dashboard Engine
-// Full-Stack Connected Mode (On-Demand / Lazy Loading)
+// CampusLib - Library Dashboard
+// Talks to the Java backend through /api (lazy loaded per tab).
+// Only the presentation layer changed; every endpoint,
+// request body and function name is the same as before.
 // ==========================================================
 
 const API_BASE = window.location.protocol === 'file:' ? 'http://localhost:8080/api' : '/api';
 let isBackendConnected = false;
 let currentActiveTab = 'dashboard';
 
-// In-Memory Cached State
+// In-memory cached state
 let books = [];
 let students = [];
 let historyRecords = [];
@@ -19,7 +21,7 @@ let dashboardData = {
     borrowedBooks: []
 };
 
-// Lazy Loading Tracker: Only fetch when the user actually opens that tab
+// Lazy loading tracker: a tab fetches its data only when first opened
 const loadedTabs = {
     dashboard: false,
     books: false,
@@ -27,29 +29,26 @@ const loadedTabs = {
     history: false
 };
 
-// Deterministic student avatar colors
+// Muted avatar colors (white initials stay readable on all of them)
 const AVATAR_COLORS = [
-    "#2563eb", "#7c3aed", "#059669", "#d97706", "#dc2626", 
-    "#0891b2", "#4f46e5", "#be185d", "#0d9488", "#b45309"
+    "#5b7b6f", "#7a6a58", "#6b6f8f", "#8a5a4a",
+    "#4f6b7a", "#7b6b8a", "#5f7a4f", "#8a7a4a"
 ];
 
-// Initialize on DOM Ready
 document.addEventListener("DOMContentLoaded", async () => {
     initNavigation();
     initDateDisplay();
     setupLiveHints();
     setupModalKeybinds();
-    
-    // Initial Load: ONLY load lightweight Dashboard stats!
-    // Zero waste: /api/books, /api/students, /api/history are NOT called up-front!
+
+    // Only the lightweight dashboard summary is loaded up front
     await loadDashboardData();
 });
 
 // ==========================================================
-// 0. Lazy-Loaded API Endpoints (On-Demand Per Tab)
+// 0. API loaders (on demand, per tab)
 // ==========================================================
 
-// 0.1. Dashboard Only: Lightweight summary & active loans
 async function loadDashboardData(force = false) {
     if (loadedTabs.dashboard && !force) return;
 
@@ -71,7 +70,6 @@ async function loadDashboardData(force = false) {
     }
 }
 
-// 0.2. Books Catalog Only: Called when user clicks "Books Catalog"
 async function loadBooksData(force = false) {
     if (loadedTabs.books && !force) {
         renderBooksTable();
@@ -80,7 +78,7 @@ async function loadBooksData(force = false) {
 
     const tbody = document.getElementById("booksTableBody");
     if (tbody && !books.length) {
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 28px; color: var(--text-muted);">Fetching books catalog... ⏳</td></tr>`;
+        tbody.innerHTML = emptyRow(6, "Loading books…");
     }
 
     try {
@@ -91,7 +89,6 @@ async function loadBooksData(force = false) {
             updateConnectionUI(true);
             loadedTabs.books = true;
             renderBooksTable();
-            // Also update total books in sidebar
             const navB = document.getElementById("navBooksCount");
             if (navB) navB.innerText = books.length;
         }
@@ -100,7 +97,6 @@ async function loadBooksData(force = false) {
     }
 }
 
-// 0.3. Student Directory Only: Called when user clicks "Student Directory"
 async function loadStudentsData(force = false) {
     if (loadedTabs.students && !force) {
         renderStudentsTable();
@@ -109,7 +105,7 @@ async function loadStudentsData(force = false) {
 
     const tbody = document.getElementById("studentsTableBody");
     if (tbody && !students.length) {
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding: 28px; color: var(--text-muted);">Fetching student directory... ⏳</td></tr>`;
+        tbody.innerHTML = emptyRow(7, "Loading students…");
     }
 
     try {
@@ -120,7 +116,6 @@ async function loadStudentsData(force = false) {
             updateConnectionUI(true);
             loadedTabs.students = true;
             renderStudentsTable();
-            // Also update total students in sidebar
             const navS = document.getElementById("navStudentsCount");
             if (navS) navS.innerText = students.length;
         }
@@ -129,7 +124,6 @@ async function loadStudentsData(force = false) {
     }
 }
 
-// 0.4. Audit History Only: Called when user clicks "Audit History"
 async function loadHistoryData(force = false) {
     if (loadedTabs.history && !force) {
         renderHistoryTable();
@@ -138,7 +132,7 @@ async function loadHistoryData(force = false) {
 
     const tbody = document.getElementById("historyTableBody");
     if (tbody && !historyRecords.length) {
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding: 28px; color: var(--text-muted);">Fetching audit transactions... ⏳</td></tr>`;
+        tbody.innerHTML = emptyRow(7, "Loading log…");
     }
 
     try {
@@ -155,7 +149,7 @@ async function loadHistoryData(force = false) {
     }
 }
 
-// Ensure books & students exist for live lookup in circulation desk
+// Books and students are needed for the live lookups on the circulation desk
 async function ensureCirculationDataLoaded() {
     const promises = [];
     if (!loadedTabs.books) promises.push(loadBooksData());
@@ -166,45 +160,39 @@ async function ensureCirculationDataLoaded() {
 }
 
 function updateConnectionUI(connected) {
+    const card = document.getElementById("systemCard");
     const statusText = document.querySelector(".sc-status");
     const engineName = document.querySelector(".sc-engine-name");
-    const ring = document.querySelector(".pulse-ring");
-    const dot = document.querySelector(".pulse-dot");
 
-    if (connected) {
-        if (statusText) {
-            statusText.innerText = "SQLite Live Connected";
-            statusText.style.color = "#10b981";
-        }
-        if (engineName) engineName.innerText = "Port 8080 Active";
-        if (ring) ring.style.background = "rgba(16, 185, 129, 0.35)";
-        if (dot) dot.style.background = "#10b981";
-    } else {
-        if (statusText) {
-            statusText.innerText = "Server Offline (Run Java)";
-            statusText.style.color = "#f59e0b";
-        }
-        if (engineName) engineName.innerText = "Demo Standalone";
-        if (ring) ring.style.background = "rgba(245, 158, 11, 0.35)";
-        if (dot) dot.style.background = "#f59e0b";
-    }
+    if (card) card.dataset.state = connected ? "online" : "offline";
+    if (statusText) statusText.innerText = connected ? "Connected" : "Server offline";
+    if (engineName) engineName.innerText = connected ? "SQLite · port 8080" : "Start the Java server";
 }
 
 // ==========================================================
-// 1. Navigation & Tab Switching (Lazy Loading Dispatcher)
+// 1. Navigation, drawer & tab switching
 // ==========================================================
 function initNavigation() {
-    const navItems = document.querySelectorAll(".nav-item");
-    navItems.forEach(item => {
+    document.querySelectorAll(".nav-item").forEach(item => {
         item.addEventListener("click", () => {
-            const targetTab = item.getAttribute("data-tab");
-            switchTab(targetTab);
+            switchTab(item.getAttribute("data-tab"));
         });
     });
 }
 
+function openSidebar() {
+    document.getElementById("sidebar")?.classList.add("open");
+    document.getElementById("scrim")?.classList.add("show");
+}
+
+function closeSidebar() {
+    document.getElementById("sidebar")?.classList.remove("open");
+    document.getElementById("scrim")?.classList.remove("show");
+}
+
 async function switchTab(tabId) {
     currentActiveTab = tabId;
+    closeSidebar();
 
     document.querySelectorAll(".nav-item").forEach(btn => {
         btn.classList.toggle("active", btn.getAttribute("data-tab") === tabId);
@@ -216,10 +204,10 @@ async function switchTab(tabId) {
 
     const meta = {
         "dashboard": { breadcrumb: "Dashboard", heading: "Library Dashboard" },
-        "books": { breadcrumb: "Books Inventory", heading: "Book Catalog & Inventory" },
-        "students": { breadcrumb: "Student Directory", heading: "Registered Student Members" },
-        "issue-return": { breadcrumb: "Circulation Desk", heading: "Book Issue & Return Counter" },
-        "history": { breadcrumb: "Audit History", heading: "Permanent Circulation Audit Log" }
+        "books": { breadcrumb: "Books Catalog", heading: "Books Catalog" },
+        "students": { breadcrumb: "Student Directory", heading: "Student Directory" },
+        "issue-return": { breadcrumb: "Circulation Desk", heading: "Circulation Desk" },
+        "history": { breadcrumb: "Audit History", heading: "Audit History" }
     };
 
     if (meta[tabId]) {
@@ -229,7 +217,8 @@ async function switchTab(tabId) {
         if (ph) ph.innerText = meta[tabId].heading;
     }
 
-    // Lazy load specific tab data on demand
+    window.scrollTo({ top: 0 });
+
     if (tabId === 'dashboard') {
         await loadDashboardData();
     } else if (tabId === 'books') {
@@ -243,7 +232,7 @@ async function switchTab(tabId) {
     }
 }
 
-// Date Formatter (dd-MM-yyyy)
+// dd-MM-yyyy
 function getTodayString() {
     const today = new Date();
     const d = String(today.getDate()).padStart(2, '0');
@@ -256,14 +245,19 @@ function initDateDisplay() {
     const dateEl = document.getElementById("dateDisplay");
     if (!dateEl) return;
     const options = { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' };
-    dateEl.innerText = new Date().toLocaleDateString('en-US', options);
+    dateEl.innerText = new Date().toLocaleDateString('en-GB', options);
 }
 
 // ==========================================================
-// 2. Avatar & Quota Helpers
+// 2. Helpers
 // ==========================================================
+function emptyRow(cols, html) {
+    return `<tr><td colspan="${cols}" class="table-empty">${html}</td></tr>`;
+}
+
 function getAvatar(name) {
-    const parts = (name || "ST").trim().split(/\s+/);
+    name = name || "Student";
+    const parts = name.trim().split(/\s+/);
     let initials = "";
     if (parts.length === 1) {
         initials = parts[0].substring(0, 2).toUpperCase();
@@ -277,11 +271,11 @@ function getAvatar(name) {
     }
     const color = AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
 
-    return `<div class="avatar" style="background: ${color};">${initials}</div>`;
+    return `<div class="avatar" style="background: ${color};">${escapeHtml(initials)}</div>`;
 }
 
 function countBorrowedBooks(student) {
-    return books.filter(b => b.isIssued && b.issuedTo && 
+    return books.filter(b => b.isIssued && b.issuedTo &&
         b.issuedTo.branch.toUpperCase() === student.branch.toUpperCase() &&
         b.issuedTo.year === student.year &&
         b.issuedTo.rollNo === student.rollNo
@@ -304,10 +298,9 @@ function renderQuotaWidget(count) {
 }
 
 // ==========================================================
-// 3. Render Functions
+// 3. Render functions
 // ==========================================================
 
-// 3.1. Dashboard Metrics from /api/dashboard
 function renderStatsFromDashboard(data) {
     const elTotal = document.getElementById("statTotalBooks");
     const elAvail = document.getElementById("statAvailableBooks");
@@ -319,24 +312,20 @@ function renderStatsFromDashboard(data) {
     if (elIssued) elIssued.innerText = data.issuedBooks ?? 0;
     if (elStudents) elStudents.innerText = data.totalStudents ?? 0;
 
-    // Sidebar pills
     const navB = document.getElementById("navBooksCount");
     const navS = document.getElementById("navStudentsCount");
     if (navB) navB.innerText = data.totalBooks ?? 0;
     if (navS) navS.innerText = data.totalStudents ?? 0;
 }
 
-// 3.2. Dashboard Issued Table
+// 3.2 Dashboard: currently borrowed
 function renderDashboardIssuedTable(issuedList) {
     const tbody = document.getElementById("dashboardIssuedTableBody");
     if (!tbody) return;
 
     if (!issuedList || issuedList.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 36px; color: var(--text-muted);">
-            <div style="font-size: 26px; margin-bottom: 6px;">🎉</div>
-            <strong>No books are currently issued.</strong><br>
-            <span style="font-size: 12px;">All physical copies are safe in the library racks.</span>
-        </td></tr>`;
+        tbody.innerHTML = emptyRow(5,
+            `<strong>No books are out right now</strong><small>Every copy is back on the shelf.</small>`);
         return;
     }
 
@@ -344,41 +333,41 @@ function renderDashboardIssuedTable(issuedList) {
         const s = book.issuedTo;
         return `
             <tr>
-                <td>
-                    <strong>${escapeHtml(book.title)}</strong>
-                    <div style="margin-top: 3px;">
-                        <span class="book-tag">ID: #${book.id}</span>
-                        <span style="font-size: 11.5px; color: var(--text-muted); margin-left: 6px;">by ${escapeHtml(book.author)}</span>
-                    </div>
-                </td>
-                <td>
-                    <div class="student-cell">
-                        ${s ? getAvatar(s.name) : ''}
-                        <div class="student-info">
-                            <strong>${s ? escapeHtml(s.name) : 'Unknown'}</strong>
-                            <small>${s ? `📱 ${s.phone}` : '-'}</small>
+                <td data-label="Book">
+                    <div>
+                        <strong>${escapeHtml(book.title)}</strong>
+                        <div class="sub-row">
+                            <span class="chip">#${book.id}</span>
+                            <span>by ${escapeHtml(book.author)}</span>
                         </div>
                     </div>
                 </td>
-                <td>
-                    ${s ? `<span class="book-tag" style="background:#e0e7ff; color:#3730a3; font-weight:700;">${s.branch}</span> <span style="font-size:12px; color:var(--text-body);">Year ${s.year} • Roll <strong>${s.rollNo}</strong></span>` : '-'}
+                <td data-label="Borrower">
+                    ${s ? `
+                    <div class="student-cell">
+                        ${getAvatar(s.name)}
+                        <div class="student-info">
+                            <strong>${escapeHtml(s.name)}</strong>
+                            <small>${escapeHtml(s.phone)}</small>
+                        </div>
+                    </div>` : '<span class="muted">Unknown</span>'}
                 </td>
-                <td>
-                    <span class="status-pill status-issued" style="font-size:11px;">
-                        🗓️ ${book.issueDate || 'Today'}
-                    </span>
+                <td data-label="Class">
+                    ${s ? `<div><span class="chip chip-branch">${escapeHtml(s.branch)}</span>
+                        <span class="sub">Year ${s.year} · Roll ${s.rollNo}</span></div>` : '<span class="muted">-</span>'}
                 </td>
-                <td>
-                    <button class="btn btn-sm btn-secondary" onclick="quickReturn(${book.id})" title="Return book to shelf">
-                        <span>Check-In</span> &crarr;
-                    </button>
+                <td data-label="Issued"><span class="date-text">${escapeHtml(book.issueDate || 'Today')}</span></td>
+                <td class="cell-action-td">
+                    <div class="cell-actions">
+                        <button class="btn btn-sm btn-secondary" type="button" onclick="quickReturn(${book.id})" title="Return book to shelf">Check in</button>
+                    </div>
                 </td>
             </tr>
         `;
     }).join("");
 }
 
-// 3.3. Books Inventory Table
+// 3.3 Books table
 function renderBooksTable() {
     const tbody = document.getElementById("booksTableBody");
     if (!tbody) return;
@@ -398,54 +387,51 @@ function renderBooksTable() {
     });
 
     if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 36px; color: var(--text-muted);">
-            No books found in catalog.
-        </td></tr>`;
+        tbody.innerHTML = emptyRow(6,
+            `<strong>No books found</strong><small>Try a different search or add a new book.</small>`);
         return;
     }
 
     tbody.innerHTML = filtered.map(book => {
-        const statusBadge = book.isIssued ? 
-            `<span class="status-pill status-issued">● Issued</span>` : 
-            `<span class="status-pill status-available">● Available</span>`;
+        const statusBadge = book.isIssued
+            ? `<span class="status status-issued">Issued</span>`
+            : `<span class="status status-available">Available</span>`;
 
-        let borrowerHtml = `<span style="color: var(--text-muted); font-size: 12px;">&mdash; In Library Rack</span>`;
+        let borrowerHtml = `<span class="muted">On the shelf</span>`;
         if (book.isIssued && book.issuedTo) {
             borrowerHtml = `
                 <div class="student-cell">
                     ${getAvatar(book.issuedTo.name)}
                     <div class="student-info">
                         <strong>${escapeHtml(book.issuedTo.name)}</strong>
-                        <small>${book.issuedTo.branch} Yr ${book.issuedTo.year} (Roll: ${book.issuedTo.rollNo})</small>
+                        <small>${escapeHtml(book.issuedTo.branch)} · Yr ${book.issuedTo.year} · Roll ${book.issuedTo.rollNo}</small>
                     </div>
                 </div>
             `;
         }
 
-        const actionBtns = book.isIssued ? 
-            `<button class="btn btn-sm btn-secondary" onclick="quickReturn(${book.id})" style="margin-right:6px;">Check-In</button>` :
-            `<button class="btn btn-sm btn-primary" onclick="quickIssue(${book.id})" style="margin-right:6px;">Issue</button>`;
+        const actionBtn = book.isIssued
+            ? `<button class="btn btn-sm btn-secondary" type="button" onclick="quickReturn(${book.id})">Check in</button>`
+            : `<button class="btn btn-sm btn-primary" type="button" onclick="quickIssue(${book.id})">Issue</button>`;
 
         return `
             <tr>
-                <td><span class="book-tag">#${book.id}</span></td>
-                <td>
-                    <strong>${escapeHtml(book.title)}</strong>
-                    <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 2px;">Author: ${escapeHtml(book.author)}</div>
+                <td data-label="ID"><span class="chip">#${book.id}</span></td>
+                <td data-label="Book">
+                    <div>
+                        <strong>${escapeHtml(book.title)}</strong>
+                        <span class="sub">${escapeHtml(book.author)}</span>
+                    </div>
                 </td>
-                <td>${statusBadge}</td>
-                <td>${borrowerHtml}</td>
-                <td>
-                    <span style="font-size: 12px; color: var(--text-muted);">
-                        ${book.issueDate ? `🗓️ ${book.issueDate}` : '&mdash;'}
-                    </span>
+                <td data-label="Status">${statusBadge}</td>
+                <td data-label="Borrower">${borrowerHtml}</td>
+                <td data-label="Issued on">
+                    ${book.issueDate ? `<span class="date-text">${escapeHtml(book.issueDate)}</span>` : '<span class="muted">-</span>'}
                 </td>
-                <td>
-                    <div style="display:flex; align-items:center; gap:6px;">
-                        ${actionBtns}
-                        <button class="btn btn-danger-outline" onclick="deleteBook(${book.id})" title="Delete Book">
-                            &times;
-                        </button>
+                <td class="cell-action-td">
+                    <div class="cell-actions">
+                        ${actionBtn}
+                        <button class="btn-danger-outline" type="button" onclick="deleteBook(${book.id})" title="Delete book" aria-label="Delete book ${book.id}">&times;</button>
                     </div>
                 </td>
             </tr>
@@ -457,7 +443,7 @@ function filterBooks() {
     renderBooksTable();
 }
 
-// 3.4. Students Directory Table
+// 3.4 Students table
 function renderStudentsTable() {
     const tbody = document.getElementById("studentsTableBody");
     if (!tbody) return;
@@ -477,38 +463,32 @@ function renderStudentsTable() {
     });
 
     if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding: 36px; color: var(--text-muted);">
-            No student members found in directory.
-        </td></tr>`;
+        tbody.innerHTML = emptyRow(7,
+            `<strong>No students found</strong><small>Try a different search or register a student.</small>`);
         return;
     }
 
     tbody.innerHTML = filtered.map(s => {
         const borrowedCount = countBorrowedBooks(s);
+        const branchAttr = escapeHtml(s.branch);
 
         return `
             <tr>
-                <td>
+                <td data-label="Student">
                     <div class="student-cell">
                         ${getAvatar(s.name)}
-                        <div class="student-info">
-                            <strong>${escapeHtml(s.name)}</strong>
-                        </div>
+                        <div class="student-info"><strong>${escapeHtml(s.name)}</strong></div>
                     </div>
                 </td>
-                <td><span class="book-tag" style="background: #eff6ff; color: #1e40af; font-weight:700;">${s.branch}</span></td>
-                <td><span style="font-weight:600;">Year ${s.year}</span></td>
-                <td><strong>#${s.rollNo}</strong></td>
-                <td><code style="font-size:12px; color:#475569;">+91 ${s.phone}</code></td>
-                <td>${renderQuotaWidget(borrowedCount)}</td>
-                <td>
-                    <div style="display: flex; align-items: center; gap: 6px;">
-                        <button class="btn btn-sm btn-outline" onclick="issueToStudent('${s.branch}', ${s.year}, ${s.rollNo})">
-                            Issue Book
-                        </button>
-                        <button class="btn btn-danger-outline" onclick="deleteStudent('${s.branch}', ${s.year}, ${s.rollNo})" title="Delete student">
-                            &times;
-                        </button>
+                <td data-label="Branch"><span class="chip chip-branch">${branchAttr}</span></td>
+                <td data-label="Year">Year ${s.year}</td>
+                <td data-label="Roll no."><strong>#${s.rollNo}</strong></td>
+                <td data-label="Phone"><span class="mono">+91 ${escapeHtml(s.phone)}</span></td>
+                <td data-label="Quota">${renderQuotaWidget(borrowedCount)}</td>
+                <td class="cell-action-td">
+                    <div class="cell-actions">
+                        <button class="btn btn-sm btn-outline" type="button" onclick="issueToStudent('${branchAttr}', ${s.year}, ${s.rollNo})">Issue book</button>
+                        <button class="btn-danger-outline" type="button" onclick="deleteStudent('${branchAttr}', ${s.year}, ${s.rollNo})" title="Delete student" aria-label="Delete student">&times;</button>
                     </div>
                 </td>
             </tr>
@@ -520,7 +500,7 @@ function filterStudents() {
     renderStudentsTable();
 }
 
-// 3.5. Audit History Table
+// 3.5 History table
 function renderHistoryTable() {
     const tbody = document.getElementById("historyTableBody");
     if (!tbody) return;
@@ -537,37 +517,40 @@ function renderHistoryTable() {
     });
 
     if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding: 36px; color: var(--text-muted);">
-            No audit log records found.
-        </td></tr>`;
+        tbody.innerHTML = emptyRow(7,
+            `<strong>No log entries found</strong><small>Issued and returned books will appear here.</small>`);
         return;
     }
 
     tbody.innerHTML = filtered.slice().reverse().map(r => {
         const isStillIssued = r.returnDate === "Currently Issued";
-        const badge = isStillIssued ? 
-            `<span class="status-pill status-issued">● Active Borrow</span>` : 
-            `<span class="status-pill status-available">✓ Returned</span>`;
+        const badge = isStillIssued
+            ? `<span class="status status-issued">Borrowed</span>`
+            : `<span class="status status-available">Returned</span>`;
 
         return `
             <tr>
-                <td>
-                    <strong>${escapeHtml(r.bookTitle)}</strong>
-                    <div><span class="book-tag">ID: #${r.bookId}</span></div>
+                <td data-label="Book">
+                    <div>
+                        <strong>${escapeHtml(r.bookTitle)}</strong>
+                        <div class="sub-row"><span class="chip">#${r.bookId}</span></div>
+                    </div>
                 </td>
-                <td><strong>${escapeHtml(r.studentName)}</strong></td>
-                <td>
-                    <span class="book-tag" style="background:#f1f5f9; color:#334155;">${r.branch}</span>
-                    <span style="font-size:12px; color:var(--text-muted); margin-left:4px;">Yr ${r.year} (Roll ${r.rollNo})</span>
+                <td data-label="Student"><strong>${escapeHtml(r.studentName)}</strong></td>
+                <td data-label="Class &amp; roll">
+                    <div>
+                        <span class="chip chip-branch">${escapeHtml(r.branch)}</span>
+                        <span class="sub">Yr ${r.year} · Roll ${r.rollNo}</span>
+                    </div>
                 </td>
-                <td><code style="font-size:12px;">${r.phone}</code></td>
-                <td><span style="font-size:12px; color:var(--text-muted);">🗓️ ${r.issueDate}</span></td>
-                <td>
-                    ${isStillIssued ? 
-                        `<span style="color:var(--warning); font-weight:700; font-size:12px;">Pending Return</span>` : 
-                        `<span style="color:var(--success); font-weight:600; font-size:12px;">🗓️ ${r.returnDate}</span>`}
+                <td data-label="Phone"><span class="mono">${escapeHtml(r.phone)}</span></td>
+                <td data-label="Issued"><span class="date-text">${escapeHtml(r.issueDate)}</span></td>
+                <td data-label="Returned">
+                    ${isStillIssued
+                        ? `<span class="date-pending">Pending return</span>`
+                        : `<span class="date-text">${escapeHtml(r.returnDate)}</span>`}
                 </td>
-                <td>${badge}</td>
+                <td data-label="Status">${badge}</td>
             </tr>
         `;
     }).join("");
@@ -578,7 +561,7 @@ function filterHistory() {
 }
 
 // ==========================================================
-// 4. Live Hint Listeners & Shortcuts
+// 4. Live hints & shortcuts (circulation desk)
 // ==========================================================
 function setupLiveHints() {
     const issueBookInput = document.getElementById("issueBookId");
@@ -595,11 +578,11 @@ function setupLiveHints() {
             const id = parseInt(val);
             const book = books.find(b => b.id === id);
             if (!book) {
-                issueBookHint.innerHTML = `<span style="color: var(--text-muted);">🔍 No book with ID #${id} in repository</span>`;
+                issueBookHint.innerHTML = `<span class="hint-muted">No book with ID #${id} in the catalog.</span>`;
             } else if (book.isIssued) {
-                issueBookHint.innerHTML = `<span style="color: var(--danger); font-weight: 700;">⚠️ Already issued to ${book.issuedTo ? escapeHtml(book.issuedTo.name) : 'Student'}</span>`;
+                issueBookHint.innerHTML = `<span class="hint-err">Already issued to ${book.issuedTo ? escapeHtml(book.issuedTo.name) : 'a student'}.</span>`;
             } else {
-                issueBookHint.innerHTML = `<span style="color: var(--success); font-weight: 700;">✅ Ready: "${escapeHtml(book.title)}" by ${escapeHtml(book.author)}</span>`;
+                issueBookHint.innerHTML = `<span class="hint-ok">Available: "${escapeHtml(book.title)}" by ${escapeHtml(book.author)}</span>`;
             }
         });
     }
@@ -623,13 +606,13 @@ function setupLiveHints() {
         await ensureCirculationDataLoaded();
         const student = students.find(s => s.branch === branch && s.year === year && s.rollNo === roll);
         if (!student) {
-            studentHint.innerHTML = `<span style="color: var(--danger);">❌ Student not found in ${branch} Year ${year} with Roll ${roll}</span>`;
+            studentHint.innerHTML = `<span class="hint-err">No student found in ${escapeHtml(branch)}, year ${year}, roll ${roll}.</span>`;
         } else {
             const borrowed = countBorrowedBooks(student);
             if (borrowed >= 3) {
-                studentHint.innerHTML = `<span style="color: var(--danger); font-weight: 700;">⛔ Quota Exceeded! ${escapeHtml(student.name)} has already borrowed 3/3 books!</span>`;
+                studentHint.innerHTML = `<span class="hint-err">Quota full: ${escapeHtml(student.name)} already has 3 of 3 books.</span>`;
             } else {
-                studentHint.innerHTML = `<span style="color: var(--success); font-weight: 700;">👤 Found: ${escapeHtml(student.name)} (Phone: ${student.phone}) • Quota: ${borrowed}/3</span>`;
+                studentHint.innerHTML = `<span class="hint-ok">${escapeHtml(student.name)} · ${escapeHtml(student.phone)} · Quota ${borrowed}/3</span>`;
             }
         }
     }
@@ -654,9 +637,9 @@ function setupLiveHints() {
 
             if (book && book.isIssued && book.issuedTo) {
                 document.getElementById("previewBookTitle").innerText = book.title;
-                document.getElementById("previewBookId").innerText = `#${book.id} • ${book.author}`;
+                document.getElementById("previewBookId").innerText = `#${book.id} · ${book.author}`;
                 document.getElementById("previewBorrower").innerText = book.issuedTo.name;
-                document.getElementById("previewClass").innerText = `${book.issuedTo.branch} Yr ${book.issuedTo.year} (Roll ${book.issuedTo.rollNo})`;
+                document.getElementById("previewClass").innerText = `${book.issuedTo.branch} · Yr ${book.issuedTo.year} · Roll ${book.issuedTo.rollNo}`;
                 document.getElementById("previewDate").innerText = book.issueDate || "Today";
                 returnCard.style.display = "block";
             } else {
@@ -686,7 +669,7 @@ async function issueToStudent(branch, year, rollNo) {
     if (bInp) bInp.value = branch;
     if (yInp) yInp.value = year;
     if (rInp) rInp.value = rollNo;
-    
+
     if (rInp) rInp.dispatchEvent(new Event("input"));
 
     const issueInput = document.getElementById("issueBookId");
@@ -698,10 +681,9 @@ function quickReturn(bookId) {
 }
 
 // ==========================================================
-// 5. Actions: Add Book, Add Student, Issue, Return, Delete
+// 5. Actions: add, issue, return, delete
 // ==========================================================
 
-// Add Book
 async function handleAddBook(e) {
     e.preventDefault();
     const idInput = document.getElementById("newBookId");
@@ -722,20 +704,18 @@ async function handleAddBook(e) {
         if (res.ok && data.success) {
             closeModal("bookModal");
             document.getElementById("addBookForm").reset();
-            // Invalidate caches
             loadedTabs.dashboard = false;
             loadedTabs.books = false;
             await refreshActiveTab();
-            showToast(data.message || `Book "${title}" added to catalog! 📚`, "success");
+            showToast(data.message || `"${title}" added to the catalog.`, "success");
         } else {
-            showToast(data.message || "Failed to add book!", "error");
+            showToast(data.message || "Failed to add book.", "error");
         }
     } catch (err) {
         showToast("Server communication error: " + err.message, "error");
     }
 }
 
-// Add Student
 async function handleAddStudent(e) {
     e.preventDefault();
     const name = document.getElementById("newStudentName").value.toUpperCase().trim();
@@ -745,7 +725,7 @@ async function handleAddStudent(e) {
     const phone = document.getElementById("newStudentPhone").value.trim();
 
     if (phone.length !== 10 || !/^\d+$/.test(phone)) {
-        showToast("Mobile number must be exactly 10 digits!", "error");
+        showToast("Mobile number must be exactly 10 digits.", "error");
         return;
     }
 
@@ -759,20 +739,18 @@ async function handleAddStudent(e) {
         if (res.ok && data.success) {
             closeModal("studentModal");
             document.getElementById("addStudentForm").reset();
-            // Invalidate caches
             loadedTabs.dashboard = false;
             loadedTabs.students = false;
             await refreshActiveTab();
-            showToast(data.message || `Student ${name} registered successfully! 🎓`, "success");
+            showToast(data.message || `${name} registered successfully.`, "success");
         } else {
-            showToast(data.message || "Failed to register student!", "error");
+            showToast(data.message || "Failed to register student.", "error");
         }
     } catch (err) {
         showToast("Server communication error: " + err.message, "error");
     }
 }
 
-// Issue Book
 async function handleIssueBook(e) {
     e.preventDefault();
     const bookId = parseInt(document.getElementById("issueBookId").value);
@@ -793,22 +771,20 @@ async function handleIssueBook(e) {
             const hintS = document.getElementById("issueStudentLiveHint");
             if (hintB) hintB.innerHTML = "";
             if (hintS) hintS.innerHTML = "";
-            // Invalidate all caches for fresh loan state
             loadedTabs.dashboard = false;
             loadedTabs.books = false;
             loadedTabs.students = false;
             loadedTabs.history = false;
             await refreshActiveTab();
-            showToast(data.message || `Book #${bookId} checked out successfully! 🎉`, "success");
+            showToast(data.message || `Book #${bookId} checked out.`, "success");
         } else {
-            showToast(data.message || "Failed to issue book!", "error");
+            showToast(data.message || "Failed to issue book.", "error");
         }
     } catch (err) {
         showToast("Server error: " + err.message, "error");
     }
 }
 
-// Return Book
 function handleReturnBook(e) {
     e.preventDefault();
     const bookId = parseInt(document.getElementById("returnBookId").value);
@@ -828,24 +804,22 @@ async function processReturn(bookId) {
             if (returnForm) returnForm.reset();
             const returnCard = document.getElementById("returnCardPreview");
             if (returnCard) returnCard.style.display = "none";
-            // Invalidate all caches
             loadedTabs.dashboard = false;
             loadedTabs.books = false;
             loadedTabs.students = false;
             loadedTabs.history = false;
             await refreshActiveTab();
-            showToast(data.message || `Book #${bookId} returned successfully! ✅`, "success");
+            showToast(data.message || `Book #${bookId} returned.`, "success");
         } else {
-            showToast(data.message || "Failed to return book!", "error");
+            showToast(data.message || "Failed to return book.", "error");
         }
     } catch (err) {
         showToast("Server error: " + err.message, "error");
     }
 }
 
-// Delete Book
 async function deleteBook(id) {
-    if (!confirm(`Confirm deletion of Book #${id} from catalog?`)) {
+    if (!confirm(`Delete Book #${id} from the catalog?`)) {
         return;
     }
 
@@ -858,18 +832,17 @@ async function deleteBook(id) {
             loadedTabs.dashboard = false;
             loadedTabs.books = false;
             await refreshActiveTab();
-            showToast(data.message || `Book #${id} removed from catalog.`, "success");
+            showToast(data.message || `Book #${id} removed.`, "success");
         } else {
-            showToast(data.message || "Failed to delete book!", "error");
+            showToast(data.message || "Failed to delete book.", "error");
         }
     } catch (err) {
         showToast("Server error: " + err.message, "error");
     }
 }
 
-// Delete Student
 async function deleteStudent(branch, year, rollNo) {
-    if (!confirm(`Confirm deletion of student ${branch} Year ${year}, Roll ${rollNo}?`)) {
+    if (!confirm(`Delete student ${branch}, year ${year}, roll ${rollNo}?`)) {
         return;
     }
 
@@ -883,16 +856,16 @@ async function deleteStudent(branch, year, rollNo) {
             loadedTabs.dashboard = false;
             loadedTabs.students = false;
             await refreshActiveTab();
-            showToast(data.message || `Student removed.`, "success");
+            showToast(data.message || "Student removed.", "success");
         } else {
-            showToast(data.message || "Failed to delete student!", "error");
+            showToast(data.message || "Failed to delete student.", "error");
         }
     } catch (err) {
         showToast("Server error: " + err.message, "error");
     }
 }
 
-// Helper: refresh data for whatever tab user is currently viewing
+// Refresh whichever tab is currently open
 async function refreshActiveTab() {
     if (currentActiveTab === 'dashboard') {
         await loadDashboardData(true);
@@ -908,11 +881,16 @@ async function refreshActiveTab() {
 }
 
 // ==========================================================
-// 6. Modals & Notifications
+// 6. Modals & toasts
 // ==========================================================
 function openModal(id) {
     const modal = document.getElementById(id);
-    if (modal) modal.classList.add("active");
+    if (!modal) return;
+    modal.classList.add("active");
+    const firstInput = modal.querySelector("input");
+    if (firstInput && window.matchMedia("(min-width: 721px)").matches) {
+        setTimeout(() => firstInput.focus(), 50);
+    }
 }
 
 function closeModal(id) {
@@ -930,7 +908,13 @@ function setupModalKeybinds() {
     window.addEventListener("keydown", (e) => {
         if (e.key === "Escape") {
             document.querySelectorAll(".modal-overlay.active").forEach(m => m.classList.remove("active"));
+            closeSidebar();
         }
+    });
+
+    // Reset the drawer if the window is resized to desktop width
+    window.addEventListener("resize", () => {
+        if (window.innerWidth > 900) closeSidebar();
     });
 }
 
@@ -940,19 +924,19 @@ function showToast(message, type = "info") {
 
     const toast = document.createElement("div");
     toast.className = `toast toast-${type === "error" ? "error" : "success"}`;
-    toast.innerHTML = `<span>${message}</span>`;
+    toast.textContent = message;
     container.appendChild(toast);
 
     setTimeout(() => {
         toast.style.opacity = "0";
-        toast.style.transform = "translateX(100%)";
+        toast.style.transform = "translateY(8px)";
         toast.style.transition = "all 0.25s ease";
         setTimeout(() => toast.remove(), 250);
     }, 3800);
 }
 
 function escapeHtml(str) {
-    if (!str) return '';
+    if (str === null || str === undefined) return '';
     return String(str).replace(/[&<>"']/g, m => ({
         '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
     })[m]);
