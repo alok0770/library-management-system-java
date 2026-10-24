@@ -1,4 +1,5 @@
 #!/bin/bash
+cd "$(dirname "$0")"
 echo "========================================================"
 echo "Starting CampusLib (Core Java + SQLite Server)..."
 echo "Port: 8080"
