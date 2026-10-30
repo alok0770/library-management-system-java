@@ -6,14 +6,14 @@ A full-featured College Library Management System built in pure Core Java using 
 
 ## 🚀 Features & Architecture
 
-### 1. 🌐 Modern Web Dashboard (Port 8080)
+### 1. 🌐 Modern Web Dashboard (Port 8081)
 - **Live Circulation Desk**: Rapid check-out and check-in interface with real-time student quota badges and live book return previews.
 - **Executive Metrics**: Live statistics for Total Cataloged, Books on Shelf, Active Borrowings, and Registered Members.
 - **Dynamic Search & Filters**: Instant search across titles, authors, student branches, roll numbers, and contact IDs.
 - **Design System**: Premium dark-slate sidebar, glowing status indicators, visual quota trackers (`[●][●][○] 2/3`), and animated toast feedback.
 
 ### 2. ⚡ Embedded Core Java REST API (No External Frameworks)
-- **Lightweight Built-in Server**: Powered by Java's native `com.sun.net.httpserver.HttpServer` on port `8080`.
+- **Lightweight Built-in Server**: Powered by Java's native `com.sun.net.httpserver.HttpServer` on port `8081`.
 - **Dual Mode**: Interactive console CLI and modern web browser UI run concurrently using the same live database and service instances.
 - **RESTful Endpoints**:
   - `GET /api/health` — Health check & inventory stats
@@ -75,4 +75,4 @@ A full-featured College Library Management System built in pure Core Java using 
 
 4. **Access the Web Dashboard:**
    Open your browser at:
-   👉 **http://localhost:8080**
+   👉 **http://localhost:8081**

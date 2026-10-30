@@ -21,7 +21,7 @@ import java.util.regex.Pattern;
 
 public class LibraryHttpServer {
 
-    private static final int DEFAULT_PORT = 8080;
+    private static final int DEFAULT_PORT = 8081;
     private final int port;
     private final StudentService studentService;
     private final BookService bookService;

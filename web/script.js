@@ -5,7 +5,7 @@
 // request body and function name is the same as before.
 // ==========================================================
 
-const API_BASE = window.location.protocol === 'file:' ? 'http://localhost:8080/api' : '/api';
+const API_BASE = window.location.protocol === 'file:' ? 'http://localhost:8081/api' : '/api';
 let isBackendConnected = false;
 let currentActiveTab = 'dashboard';
 
@@ -166,7 +166,7 @@ function updateConnectionUI(connected) {
 
     if (card) card.dataset.state = connected ? "online" : "offline";
     if (statusText) statusText.innerText = connected ? "Connected" : "Server offline";
-    if (engineName) engineName.innerText = connected ? "SQLite · port 8080" : "Start the Java server";
+    if (engineName) engineName.innerText = connected ? "SQLite · port 8081" : "Start the Java server";
 }
 
 // ==========================================================
